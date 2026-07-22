@@ -23,6 +23,9 @@ function main($json)
     // Calculate offset
     $offset = ($page - 1) * $per_page;
 
+    // current member
+    $currentMemberId = (int)($data['member_id'] ?? 0);
+
     $where = [];
 
     // Search by name
@@ -44,7 +47,21 @@ function main($json)
         $where[] = "TIMESTAMPDIFF(YEAR, fm.dob, CURDATE()) <= " . (int)$age_to;
     }
 
-    $csql = "SELECT fm.id AS member_id,fm.* FROM family_member fm";
+    // $csql = "SELECT fm.id AS member_id,fm.* FROM family_member fm";
+    $csql = "SELECT
+                fm.id AS member_id,
+                fm.*,
+                CASE
+                    WHEN EXISTS (
+                        SELECT 1
+                        FROM submit_matrimonial_requests smr
+                        WHERE smr.member_id = $currentMemberId
+                        AND smr.request_id = fm.id
+                    )
+                    THEN '1'
+                    ELSE '0'
+                END AS is_interested
+            FROM family_member fm";
 
     if (!empty($where)) {
         $csql .= " WHERE " . implode(" AND ", $where);
