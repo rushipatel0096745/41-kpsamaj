@@ -19,8 +19,9 @@ $result = dynamicInsert("bookmark_matrimonials", $json, $file, $baseurl, $valida
 echo json_encode($result);
 
 
-function dynamicInsert($table, $json, $filesData, $baseurl, $validation = []) {
-$formData = json_decode($json, true);
+function dynamicInsert($table, $json, $filesData, $baseurl, $validation = [])
+{
+    $formData = json_decode($json, true);
     /* field validation code start */
     $errors = [];
 
@@ -92,6 +93,46 @@ $formData = json_decode($json, true);
 
     $obj = new MySQLCN();
 
+    $memberId      = trim($formData['member_id'] ?? '');
+    $savedMemberId = trim($formData['saved_member_id'] ?? '');
+
+    if (empty($memberId) || empty($savedMemberId)) {
+        echo json_encode([
+            "code"    => "422",
+            "success" => "0",
+            "message" => "Validation failed",
+            "data"    => "",
+            "errors"  => [
+                "member_id"       => empty($memberId)      ? "Member_id is required" : null,
+                "saved_member_id" => empty($savedMemberId) ? "Saved_member_id is required" : null,
+            ]
+        ]);
+        exit;
+    }
+
+    // Check if bookmark already exists
+    $checkSql = "SELECT id FROM bookmark_matrimonials 
+             WHERE member_id = '" . addslashes($memberId) . "' 
+             AND saved_member_id = '" . addslashes($savedMemberId) . "' 
+             LIMIT 1";
+    $existing = $obj->select($checkSql);
+
+    if (!empty($existing)) {
+        // Already bookmarked → DELETE (toggle off)
+        $delSql = "DELETE FROM bookmark_matrimonials 
+               WHERE member_id = '" . addslashes($memberId) . "' 
+               AND saved_member_id = '" . addslashes($savedMemberId) . "'";
+        $obj->delete($delSql);
+
+        echo json_encode([
+            "code"    => "200",
+            "success" => "1",
+            "message" => "Bookmark removed.",
+            "data"    => []
+        ]);
+        exit;
+    }
+
     $columns = [];
     $values = [];
 
@@ -121,23 +162,23 @@ $formData = json_decode($json, true);
             $filename = time() . "_" . preg_replace('/[^a-zA-Z0-9._-]/', '', $file['name']);
 
             if (move_uploaded_file($file['tmp_name'], $uploadDir . $filename)) {
-                 $filename  = $baseurl . "assets/uploads/" . $filename;
+                $filename  = $baseurl . "assets/uploads/" . $filename;
                 $columns[] = "`" . $field . "`";
                 $values[] = "'" . addslashes($filename) . "'";
             }
         }
     }
 
-        //$inssql = "INSERT INTO `" . $table . "` (" . implode(", ", $columns) . ") VALUES (" . implode(", ", $values) . ")";
+    //$inssql = "INSERT INTO `" . $table . "` (" . implode(", ", $columns) . ") VALUES (" . implode(", ", $values) . ")";
 
-        $updatedData = [];
+    $updatedData = [];
 
-        foreach ($columns as $column) {
-            $colName = str_replace("`", "", $column);
-            $updatedData[] = "`{$colName}` = VALUES(`{$colName}`)";
-        }
+    foreach ($columns as $column) {
+        $colName = str_replace("`", "", $column);
+        $updatedData[] = "`{$colName}` = VALUES(`{$colName}`)";
+    }
 
-        $inssql = "INSERT INTO `" . $table . "` (" . implode(", ", $columns) . ") VALUES (" . implode(", ", $values) . ") ON DUPLICATE KEY UPDATE " . implode(", ", $updatedData);
+    $inssql = "INSERT INTO `" . $table . "` (" . implode(", ", $columns) . ") VALUES (" . implode(", ", $values) . ") ON DUPLICATE KEY UPDATE " . implode(", ", $updatedData);
 
     // Debug
     // echo $inssql; die;
@@ -154,7 +195,6 @@ $formData = json_decode($json, true);
             "message" => "Record successfully saved.",
             "data" => $formData
         ];
-
     } else {
 
         return [
@@ -165,4 +205,3 @@ $formData = json_decode($json, true);
         ];
     }
 }
-?>

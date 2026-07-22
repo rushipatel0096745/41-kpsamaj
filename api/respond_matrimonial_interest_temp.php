@@ -9,68 +9,20 @@ $file = $_FILES;
 // Base URL
 $baseurl = "https://api.41kpsamaj-foundation.org/"; // change this as needed
 
-$formData = json_decode($json, true);
-
-// Validate required fields
-$memberId  = (int)($formData['member_id']  ?? 0);
-$requestId = (int)($formData['request_id'] ?? 0);
-
-if ($memberId <= 0 || $requestId <= 0) {
-    echo json_encode([
-        "code"    => "422",
-        "success" => "0",
-        "message" => "Validation failed",
-        "data"    => "",
-        "errors"  => [
-            "member_id"  => $memberId  <= 0 ? "Member_id is required"  : null,
-            "request_id" => $requestId <= 0 ? "Request_id is required" : null,
-        ]
-    ]);
-    exit;
-}
-
-// Check if interest already sent
-$obj      = new MySQLCN();
-$checkSql = "SELECT id FROM submit_matrimonial_requests 
-             WHERE member_id  = $memberId 
-             AND request_id = $requestId 
-             LIMIT 1";
-$existing = $obj->select($checkSql);
-
-if ($existing === false || $existing === null) {
-    echo json_encode([
-        "code"    => "500",
-        "success" => "0",
-        "message" => "Query failed.",
-        "data"    => []
-    ]);
-    exit;
-}
-
-if (!empty($existing)) {
-    echo json_encode([
-        "code"    => "200",
-        "success" => "0",
-        "message" => "Interest already sent.",
-        "data"    => []
-    ]);
-    exit;
-}
-
-
 
 $validation = [
+    'id'  => ['required' => true],
     'member_id'  => ['required' => true],
-    'request_id'  => ['required' => true]
+    'request_id'  => ['required' => true],
+    'action'  => ['required' => true]
 ];
 
 $result = dynamicInsert("submit_matrimonial_requests", $json, $file, $baseurl, $validation);
 echo json_encode($result);
 
 
-function dynamicInsert($table, $json, $filesData, $baseurl, $validation = [])
-{
-    $formData = json_decode($json, true);
+function dynamicInsert($table, $json, $filesData, $baseurl, $validation = []) {
+$formData = json_decode($json, true);
     /* field validation code start */
     $errors = [];
 
@@ -171,23 +123,23 @@ function dynamicInsert($table, $json, $filesData, $baseurl, $validation = [])
             $filename = time() . "_" . preg_replace('/[^a-zA-Z0-9._-]/', '', $file['name']);
 
             if (move_uploaded_file($file['tmp_name'], $uploadDir . $filename)) {
-                $filename  = $baseurl . "assets/uploads/" . $filename;
+                 $filename  = $baseurl . "assets/uploads/" . $filename;
                 $columns[] = "`" . $field . "`";
                 $values[] = "'" . addslashes($filename) . "'";
             }
         }
     }
 
-    //$inssql = "INSERT INTO `" . $table . "` (" . implode(", ", $columns) . ") VALUES (" . implode(", ", $values) . ")";
+        //$inssql = "INSERT INTO `" . $table . "` (" . implode(", ", $columns) . ") VALUES (" . implode(", ", $values) . ")";
 
-    $updatedData = [];
+        $updatedData = [];
 
-    foreach ($columns as $column) {
-        $colName = str_replace("`", "", $column);
-        $updatedData[] = "`{$colName}` = VALUES(`{$colName}`)";
-    }
+        foreach ($columns as $column) {
+            $colName = str_replace("`", "", $column);
+            $updatedData[] = "`{$colName}` = VALUES(`{$colName}`)";
+        }
 
-    $inssql = "INSERT INTO `" . $table . "` (" . implode(", ", $columns) . ") VALUES (" . implode(", ", $values) . ") ON DUPLICATE KEY UPDATE " . implode(", ", $updatedData);
+        $inssql = "INSERT INTO `" . $table . "` (" . implode(", ", $columns) . ") VALUES (" . implode(", ", $values) . ") ON DUPLICATE KEY UPDATE " . implode(", ", $updatedData);
 
     // Debug
     // echo $inssql; die;
@@ -204,6 +156,7 @@ function dynamicInsert($table, $json, $filesData, $baseurl, $validation = [])
             "message" => "Record successfully saved.",
             "data" => $formData
         ];
+
     } else {
 
         return [
@@ -214,3 +167,4 @@ function dynamicInsert($table, $json, $filesData, $baseurl, $validation = [])
         ];
     }
 }
+?>

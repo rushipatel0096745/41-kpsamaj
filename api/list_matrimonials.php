@@ -17,7 +17,7 @@ function main($json)
     $age_to   = trim($data['age_to'] ?? '');
 
     // Default pagination
-    $page     = !empty($data['page']) ? (int)$data['page'] : 0;
+    $page     = !empty($data['page']) ? (int)$data['page'] : 1;
     $per_page = !empty($data['per_page']) ? (int)$data['per_page'] : 10;
 
     // Calculate offset
@@ -48,32 +48,64 @@ function main($json)
     }
 
     // $csql = "SELECT fm.id AS member_id,fm.* FROM family_member fm";
-    $csql = "SELECT
-                fm.id AS member_id,
-                fm.*,
-                CASE
-                    WHEN EXISTS (
-                        SELECT 1
-                        FROM submit_matrimonial_requests smr
-                        WHERE smr.member_id = $currentMemberId
-                        AND smr.request_id = fm.id
-                    )
-                    THEN '1'
-                    ELSE '0'
-                END AS is_interested,
+  $csql = "
+        SELECT
+            fmtr.id,
+            fmtr.member_id,
+            CONCAT(fm.surname, ' ', fm.name)                        AS name,
+            TIMESTAMPDIFF(YEAR, fm.dob, CURDATE())                  AS age,
+            fm.gender,
 
-                CASE
-                    WHEN EXISTS (
-                        SELECT 1
-                        FROM bookmark_matrimonials bm
-                        WHERE bm.member_id = $currentMemberId
-                        AND bm.saved_member_id = fm.id
-                    )
-                    THEN '1'
-                    ELSE '0'
-                END AS is_bookmarked
+            (
+                SELECT lvc.village_city_name
+                FROM list_village_city lvc
+                WHERE lvc.id = fm.city
+                LIMIT 1
+            ) AS city,
 
-            FROM family_member fm";
+            fm.state  AS state,
+
+            fmtr.height,
+
+            (
+                SELECT le.education
+                FROM form_educations fe
+                JOIN list_education le ON le.id = fe.education
+                WHERE fe.member_id = fm.id
+                LIMIT 1
+            ) AS qualification,
+
+            ''                                                       AS occupation,
+            '1'                                                      AS is_verified,
+
+            CASE
+                WHEN EXISTS (
+                    SELECT 1
+                    FROM submit_matrimonial_requests smr
+                    WHERE smr.member_id = $currentMemberId
+                    AND smr.request_id = fm.id
+                )
+                THEN '1' ELSE '0'
+            END AS is_interested,
+
+            CASE
+                WHEN EXISTS (
+                    SELECT 1
+                    FROM bookmark_matrimonials bm
+                    WHERE bm.member_id = $currentMemberId
+                    AND bm.saved_member_id = fm.id
+                )
+                THEN '1' ELSE '0'
+            END AS is_bookmarked,
+
+            fmtr.user_photo_1,
+            DATE(fmtr.createdon)                                     AS added_date,
+            DATE(fmtr.updatedon)                                     AS updated_date
+
+        FROM form_matromonials fmtr
+        LEFT JOIN family_member fm
+            ON fm.id = fmtr.member_id
+    ";
 
     if (!empty($where)) {
         $csql .= " WHERE " . implode(" AND ", $where);
@@ -81,7 +113,19 @@ function main($json)
 
     $csql .= " ORDER BY fm.id DESC LIMIT $per_page OFFSET $offset";
 
+    $csql = preg_replace('/\s+/', ' ', trim($csql));
+
     $posts = $obj->select($csql);
+
+    // ADD THIS BLOCK
+    if ($posts === false || $posts === null) {
+        return [
+            "code"    => "500",
+            "success" => "0",
+            "message" => "Query failed.",
+            "data"    => $csql
+        ];
+    }
 
     if (count($posts) > 0) {
         $response = [

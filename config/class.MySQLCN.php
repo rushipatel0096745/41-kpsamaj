@@ -66,6 +66,11 @@ class MySQLCN {
         }
         $conn = $this->CONN;
         $results = mysqli_query($conn, $sql);
+        if ($results === false) {
+            error_log("SQL ERROR: " . mysqli_error($conn) . " | QUERY: " . $sql);
+            return false;
+        }
+
         if ((!$results) or ( empty($results))) {
             return false;
         }
