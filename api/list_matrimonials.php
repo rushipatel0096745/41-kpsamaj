@@ -60,7 +60,19 @@ function main($json)
                     )
                     THEN '1'
                     ELSE '0'
-                END AS is_interested
+                END AS is_interested,
+
+                CASE
+                    WHEN EXISTS (
+                        SELECT 1
+                        FROM bookmark_matrimonials bm
+                        WHERE bm.member_id = $currentMemberId
+                        AND bm.saved_member_id = fm.id
+                    )
+                    THEN '1'
+                    ELSE '0'
+                END AS is_bookmarked
+
             FROM family_member fm";
 
     if (!empty($where)) {
