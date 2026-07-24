@@ -50,7 +50,9 @@ function main($json)
     $safeFamily = addslashes($familyId);
 
     // Get shakhe from family_registration
-    $shakheCheck = $obj->select("SELECT shakhe FROM family_registration WHERE family_id = '$safeFamily' LIMIT 1");
+    $shakheSql = "SELECT shakhe FROM family_registration WHERE family_id = '$safeFamily' LIMIT 1";
+    $shakheSql   = preg_replace('/\s+/', ' ', trim($shakheSql));
+    $shakheCheck = $obj->select($shakheSql);
 
     if ($shakheCheck === false || $shakheCheck === null) {
         return [
@@ -73,8 +75,10 @@ function main($json)
     $shakheId = (int)$shakheCheck[0]['shakhe'];
 
     // Count total besanas for this shakhe
-    $countSql  = "SELECT COUNT(*) AS total FROM form_besana_posters fbp INNER JOIN family_member fm ON fm.id = fbp.member_id INNER JOIN family_registration fr ON fr.family_id = fm.family_id WHERE fr.shakhe = $shakheId";
+    $countSql  = "SELECT COUNT(*) AS total FROM form_besana_posters WHERE deceased_shakhe = $shakheId";
+    $countSql  = preg_replace('/\s+/', ' ', trim($countSql));
     $countData = $obj->select($countSql);
+
 
     if ($countData === false || $countData === null) {
         return [
@@ -88,9 +92,20 @@ function main($json)
     $total = (int)$countData[0]['total'];
 
     // Fetch besanas for this shakhe
-    $csql = "SELECT fbp.id, fbp.member_id, fbp.deceased_name, fbp.deceased_photo, fbp.deceased_native, fbp.deceased_shakhe, fbp.date_of_demise, fbp.age_of_death, fbp.besna_day, fbp.besna_date, fbp.besna_time_from, fbp.besna_time_to, fbp.besna_location, fbp.besna_venue_hall, fbp.prayer_note, fbp.createdon, fbp.updatedon FROM form_besana_posters fbp INNER JOIN family_member fm ON fm.id = fbp.member_id INNER JOIN family_registration fr ON fr.family_id = fm.family_id WHERE fr.shakhe = $shakheId ORDER BY fbp.id DESC LIMIT $per_page OFFSET $offset";
+    // $csql = "SELECT fbp.id, fbp.member_id, fbp.deceased_name, fbp.deceased_photo, fbp.deceased_native, fbp.deceased_shakhe, fbp.date_of_demise, fbp.age_of_death, fbp.besna_day, fbp.besna_date, fbp.besna_time_from, fbp.besna_time_to, fbp.besna_location, fbp.besna_venue_hall, fbp.prayer_note, fbp.createdon, fbp.updatedon FROM form_besana_posters fbp INNER JOIN family_member fm ON fm.id = fbp.member_id INNER JOIN family_registration fr ON fr.family_id = fm.family_id WHERE fr.shakhe = $shakheId ORDER BY fbp.id DESC LIMIT $per_page OFFSET $offset";
+    // $csql  = preg_replace('/\s+/', ' ', trim($csql));
+    // $posts = $obj->select($csql);
 
+    $csql = "SELECT id, member_id, deceased_name, deceased_photo, deceased_generated_photo, deceased_native, deceased_shakhe, date_of_demise, age_of_death, besna_day, besna_date, besna_time_from, besna_time_to, besna_location, besna_venue_hall, prayer_note, createdon, updatedon FROM form_besana_posters WHERE deceased_shakhe = $shakheId ORDER BY id DESC LIMIT $per_page OFFSET $offset";
+    $csql  = preg_replace('/\s+/', ' ', trim($csql));
     $posts = $obj->select($csql);
+
+    // DEBUG
+    // return [
+    //     "debug"  => true,
+    //     "query"  => $csql,
+    //     "posts"  => $posts
+    // ];
 
     if ($posts === false || $posts === null) {
         return [
@@ -122,4 +137,3 @@ function main($json)
         "data"    => []
     ];
 }
-?>
